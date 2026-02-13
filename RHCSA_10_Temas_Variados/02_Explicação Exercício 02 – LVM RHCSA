@@ -1,0 +1,145 @@
+
+# 📘 Explicação Completa — Exercício 02 LVM (RHCSA)
+
+## 🔎 Visão Geral
+
+Neste exercício você realizou:
+
+- Criação de Physical Volumes (PV)
+- Criação de Volume Group (VG)
+- Criação de Logical Volumes (LV)
+- Formatação em XFS
+- Montagem manual
+- Configuração persistente no /etc/fstab
+
+Tudo exatamente como a prova RHCSA exige.
+
+---
+
+# 🧱 Estrutura Criada
+
+Discos adicionados:
+- /dev/vdb (2GB) → usado no VG
+- /dev/vdc (2GB) → criado como PV, mas ainda não utilizado no VG
+
+VG criado:
+- vgdata
+
+LV criados:
+- lvapp (500MB)
+- lvdb (700MB)
+
+Montagens:
+- /app
+- /db
+
+---
+
+# 🧠 Conceito Importante — LVM em Camadas
+
+LVM funciona assim:
+
+DISCO → PV → VG → LV → Filesystem → Mount
+
+### 1️⃣ PV (Physical Volume)
+Você inicializou o disco com:
+
+    pvcreate /dev/vdb
+
+Isso prepara o disco para uso no LVM.
+
+---
+
+### 2️⃣ VG (Volume Group)
+Você agrupou o PV:
+
+    vgcreate vgdata /dev/vdb
+
+O VG é como um "pool de armazenamento".
+
+---
+
+### 3️⃣ LV (Logical Volume)
+Você dividiu o VG em volumes menores:
+
+    lvcreate -L 500M -n lvapp vgdata
+    lvcreate -L 700M -n lvdb vgdata
+
+Esses são os "discos virtuais" que o sistema usa.
+
+---
+
+### 4️⃣ Formatação
+
+Você aplicou XFS:
+
+    mkfs.xfs /dev/vgdata/lvapp
+    mkfs.xfs /dev/vgdata/lvdb
+
+Importante: RHCSA usa XFS como padrão.
+
+---
+
+### 5️⃣ Montagem Manual
+
+    mount /dev/vgdata/lvapp /app
+    mount /dev/vgdata/lvdb /db
+
+---
+
+### 6️⃣ Persistência no Boot
+
+Você usou UUID no /etc/fstab.
+
+Isso é importante porque:
+- Evita problemas se nomes de device mudarem
+- É a prática recomendada na prova
+
+Teste correto:
+
+    umount /app /db
+    mount -a
+
+Se montou sem erro → perfeito.
+
+---
+
+# 📊 Análise Técnica do Seu Resultado
+
+✔ VG criado corretamente
+✔ LVs ativos (-wi-ao----)
+✔ Filesystem XFS aplicado
+✔ Montagem funcionando
+✔ Persistência validada
+
+Ponto extra:
+
+Você criou um PV extra (/dev/vdc) mas não adicionou ao VG.
+Isso não é erro — apenas ficou disponível.
+
+Se quisesse expandir o VG:
+
+    vgextend vgdata /dev/vdc
+
+---
+
+# 🎯 Nível Prova
+
+Você executou este exercício em nível totalmente compatível com RHCSA.
+
+Se isso cair na prova, você resolve.
+
+---
+
+# 🏆 Conclusão
+
+Você demonstrou:
+
+- Entendimento de estrutura LVM
+- Execução correta de comandos
+- Validação pós-configuração
+- Boas práticas com UUID
+
+Nível técnico: consistente.
+
+Continue repetindo até fazer isso sem pensar.
