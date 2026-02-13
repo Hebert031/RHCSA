@@ -1,228 +1,289 @@
-# 🛠 Runbook RHCSA --- Usuários, Permissões e LVM
 
-------------------------------------------------------------------------
+# 🛠 Runbook RHCSA — Usuários, Permissões, LVM, Rede, Firewall e SELinux
 
-# 🔐 BLOCO 1 --- Usuários e Permissões
+---
+
+# 🔐 BLOCO 1 — Usuários e Permissões
 
 ## Criar usuário
 
-``` bash
+```bash
 sudo useradd analista
 ```
 
 Cria um novo usuário com diretório home e shell padrão.
 
-------------------------------------------------------------------------
+---
 
 ## Criar grupo
 
-``` bash
+```bash
 sudo groupadd financeiro
 ```
 
 Cria um grupo para controle coletivo de acesso.
 
-------------------------------------------------------------------------
+---
 
 ## Adicionar usuário ao grupo
 
-``` bash
+```bash
 sudo usermod -aG financeiro analista
 ```
 
-`-a` adiciona sem remover outros grupos\
-`-G` define grupo suplementar
+- `-a` adiciona sem remover outros grupos  
+- `-G` define grupo suplementar  
 
-------------------------------------------------------------------------
+---
 
 ## Criar diretório
 
-``` bash
+```bash
 sudo mkdir /projetos
 ```
 
-------------------------------------------------------------------------
+---
 
 ## Alterar grupo dono do diretório
 
-``` bash
+```bash
 sudo chown :financeiro /projetos
 ```
 
 Mantém dono root, altera grupo para financeiro.
 
-------------------------------------------------------------------------
+---
 
 ## Ajustar permissões
 
-``` bash
+```bash
 sudo chmod 770 /projetos
 ```
 
-Dono: rwx\
-Grupo: rwx\
-Outros: ---
+Dono: rwx  
+Grupo: rwx  
+Outros: ---  
 
-------------------------------------------------------------------------
+---
 
 ## Definir senha
 
-``` bash
+```bash
 sudo passwd analista
 ```
 
-------------------------------------------------------------------------
+---
 
 ## Testar login
 
-``` bash
+```bash
 su - analista
 ```
 
-------------------------------------------------------------------------
+---
 
-# 💾 BLOCO 2 --- LVM
+# 💾 BLOCO 2 — LVM
 
 ## Listar discos
 
-``` bash
+```bash
 lsblk
 ```
 
-------------------------------------------------------------------------
+---
 
 ## Criar Physical Volume
 
-``` bash
+```bash
 sudo pvcreate /dev/vdb
 ```
 
-------------------------------------------------------------------------
-
-## Listar PVs
-
-``` bash
-sudo pvs
-```
-
-------------------------------------------------------------------------
+---
 
 ## Criar Volume Group
 
-``` bash
+```bash
 sudo vgcreate vgdata /dev/vdb
 ```
 
-------------------------------------------------------------------------
-
-## Listar VGs
-
-``` bash
-sudo vgs
-```
-
-------------------------------------------------------------------------
+---
 
 ## Criar Logical Volumes
 
-``` bash
+```bash
 sudo lvcreate -L 500M -n lvapp vgdata
 sudo lvcreate -L 700M -n lvdb vgdata
 ```
 
-------------------------------------------------------------------------
+---
 
-## Listar LVs
+## Criar filesystem
 
-``` bash
-sudo lvs
-```
-
-------------------------------------------------------------------------
-
-## Criar filesystem XFS
-
-``` bash
+```bash
 sudo mkfs.xfs -f /dev/vgdata/lvapp
 sudo mkfs.xfs -f /dev/vgdata/lvdb
 ```
 
-------------------------------------------------------------------------
+---
 
 ## Criar pontos de montagem
 
-``` bash
+```bash
 sudo mkdir -p /app /db
 ```
 
-------------------------------------------------------------------------
+---
 
 ## Montar volumes
 
-``` bash
+```bash
 sudo mount /dev/vgdata/lvapp /app
 sudo mount /dev/vgdata/lvdb /db
 ```
 
-------------------------------------------------------------------------
+---
 
-## Verificar montagem
+## Persistência
 
-``` bash
-df -hT | egrep '/app|/db'
-```
-
-------------------------------------------------------------------------
-
-## Obter UUID
-
-``` bash
-sudo blkid /dev/vgdata/lvapp /dev/vgdata/lvdb
-```
-
-------------------------------------------------------------------------
-
-## Editar fstab
-
-``` bash
+```bash
+sudo blkid
 sudo nano /etc/fstab
+sudo mount -a
+```
+
+---
+
+# 🌐 BLOCO 3 — Rede
+
+## Configurar IP estático
+
+```bash
+sudo nmcli connection modify enp1s0 ipv4.addresses 192.168.122.60/24 ipv4.gateway 192.168.122.1 ipv4.dns 8.8.8.8 ipv4.method manual
+```
+
+Reativar:
+
+```bash
+sudo nmcli connection down enp1s0
+sudo nmcli connection up enp1s0
+```
+
+Testar:
+
+```bash
+ping 8.8.8.8
+```
+
+---
+
+# 🔥 BLOCO 4 — Firewalld
+
+## Liberar portas
+
+```bash
+sudo firewall-cmd --permanent --add-port=80/tcp
+sudo firewall-cmd --permanent --add-port=443/tcp
+sudo firewall-cmd --reload
+```
+
+Remover porta:
+
+```bash
+sudo firewall-cmd --permanent --remove-port=443/tcp
+sudo firewall-cmd --reload
+```
+
+Verificar:
+
+```bash
+sudo firewall-cmd --list-ports
+```
+
+---
+
+# 🛡 BLOCO 5 — SELinux
+
+## Verificar modo
+
+```bash
+getenforce
+sestatus
+```
+
+---
+
+## Criar diretório
+
+```bash
+sudo mkdir -p /webdata
+sudo touch /webdata/index.html
+```
+
+---
+
+## Ajustar contexto
+
+```bash
+sudo dnf install -y policycoreutils-python-utils
+sudo semanage fcontext -a -t httpd_sys_content_t "/webdata(/.*)?"
+sudo restorecon -Rv /webdata
+```
+
+Validar:
+
+```bash
+ls -lZ /webdata
+```
+
+---
+
+# 🌐 BLOCO 6 — HTTPD
+
+## Instalar e iniciar
+
+```bash
+sudo dnf install -y httpd
+sudo systemctl enable --now httpd
+```
+
+Alterar DocumentRoot para /webdata:
+
+Editar `/etc/httpd/conf/httpd.conf`
+
+```
+DocumentRoot "/webdata"
 ```
 
 Adicionar:
 
-    UUID=SEU-UUID-LVAPP  /app  xfs  defaults  0 0
-    UUID=SEU-UUID-LVDB   /db   xfs  defaults  0 0
-
-------------------------------------------------------------------------
-
-## Testar persistência
-
-``` bash
-sudo umount /app /db
-sudo mount -a
-df -hT | egrep '/app|/db'
+```apache
+<Directory "/webdata">
+    AllowOverride None
+    Require all granted
+</Directory>
 ```
 
-------------------------------------------------------------------------
+Reiniciar:
 
-## Conferência final
-
-``` bash
-pvs
-vgs
-lvs
-lsblk
-df -hT | egrep '/app|/db'
+```bash
+sudo systemctl restart httpd
 ```
 
-------------------------------------------------------------------------
+Testar:
 
-# 📌 Estrutura LVM
+```bash
+curl http://localhost/
+```
 
-DISCO → PV → VG → LV → Filesystem → Mount
+---
 
-------------------------------------------------------------------------
+# 🎯 CHECKLIST FINAL
 
-# 🎯 Observação Importante
-
-Sempre testar `/etc/fstab` com `mount -a` antes de reiniciar.
+✔ Usuário criado  
+✔ Permissões corretas  
+✔ LVM funcional  
+✔ fstab validado  
+✔ Rede configurada  
+✔ Firewall aplicado  
+✔ SELinux correto  
+✔ Apache funcionando  
