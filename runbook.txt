@@ -1,0 +1,176 @@
+Aqui está o conteúdo em formato de texto simples, sem formatação, em um único bloco para facilitar a cópia:
+
+BLOCO 1 -- Usuários e Permissões
+
+Primeiro passo: gerenciamento de usuários.
+
+Criando um novo usuário:
+sudo useradd analista
+
+Isso cria o usuário com diretório home e shell padrão.
+
+Agora criamos um grupo para controle de acesso coletivo:
+sudo groupadd financeiro
+
+Em seguida, adicionamos o usuário ao grupo:
+sudo usermod -aG financeiro analista
+
+Lembre-se:
+-a adiciona sem remover outros grupos
+-G define grupo suplementar
+
+Agora criamos um diretório para os projetos:
+sudo mkdir /projetos
+
+Alteramos o grupo dono do diretório, mantendo root como proprietário:
+sudo chown :financeiro /projetos
+
+Ajustamos as permissões:
+sudo chmod 770 /projetos
+
+Isso significa:
+Dono: leitura, escrita e execução.
+Grupo: leitura, escrita e execução.
+Outros: nenhum acesso.
+
+Definimos a senha do usuário:
+sudo passwd analista
+
+Testamos o login:
+su - analista
+
+Se logou corretamente, bloco concluído.
+
+BLOCO 2 -- LVM
+
+Listando discos disponíveis:
+lsblk
+
+Criamos o Physical Volume:
+sudo pvcreate /dev/vdb
+
+Criamos o Volume Group:
+sudo vgcreate vgdata /dev/vdb
+
+Criamos os Logical Volumes:
+sudo lvcreate -L 500M -n lvapp vgdata
+sudo lvcreate -L 700M -n lvdb vgdata
+
+Criamos o sistema de arquivos XFS:
+sudo mkfs.xfs -f /dev/vgdata/lvapp
+sudo mkfs.xfs -f /dev/vgdata/lvdb
+
+Criamos os pontos de montagem:
+sudo mkdir -p /app /db
+
+Montamos os volumes:
+sudo mount /dev/vgdata/lvapp /app
+sudo mount /dev/vgdata/lvdb /db
+
+Agora garantimos persistência.
+
+Descobrimos o UUID:
+sudo blkid
+
+Editamos o fstab:
+sudo nano /etc/fstab
+
+Validamos sem reiniciar:
+sudo mount -a
+
+Se não houver erro, LVM funcional.
+
+BLOCO 3 -- Rede
+
+Configurando IP estático via nmcli:
+sudo nmcli connection modify enp1s0 ipv4.addresses 192.168.122.60/24 ipv4.gateway 192.168.122.1 ipv4.dns 8.8.8.8 ipv4.method manual
+
+Reativamos a conexão:
+sudo nmcli connection down enp1s0
+sudo nmcli connection up enp1s0
+
+Testamos conectividade:
+ping 8.8.8.8
+
+Se responde, rede configurada corretamente.
+
+BLOCO 4 -- Firewalld
+
+Liberando portas HTTP e HTTPS:
+sudo firewall-cmd --permanent --add-port=80/tcp
+sudo firewall-cmd --permanent --add-port=443/tcp
+sudo firewall-cmd --reload
+
+Removendo porta:
+sudo firewall-cmd --permanent --remove-port=443/tcp
+sudo firewall-cmd --reload
+
+Verificando portas abertas:
+sudo firewall-cmd --list-ports
+
+Firewall validado.
+
+BLOCO 5 -- SELinux
+
+Verificando o modo atual:
+getenforce
+sestatus
+
+Criando diretório para conteúdo web:
+sudo mkdir -p /webdata
+sudo touch /webdata/index.html
+
+Instalando ferramentas necessárias:
+sudo dnf install -y policycoreutils-python-utils
+
+Configurando contexto correto para Apache:
+sudo semanage fcontext -a -t httpd_sys_content_t "/webdata(/.*)?"
+
+Aplicando contexto:
+sudo restorecon -Rv /webdata
+
+Validando:
+ls -lZ /webdata
+
+Se o contexto estiver correto, SELinux configurado.
+
+BLOCO 6 -- HTTPD
+
+Instalando Apache:
+sudo dnf install -y httpd
+
+Habilitando e iniciando serviço:
+sudo systemctl enable --now httpd
+
+Alterando DocumentRoot para /webdata:
+
+Editar:
+/etc/httpd/conf/httpd.conf
+
+Alterar para:
+DocumentRoot "/webdata"
+
+Adicionar bloco:
+<Directory "/webdata">
+AllowOverride None
+Require all granted
+</Directory>
+
+Reiniciar serviço:
+sudo systemctl restart httpd
+
+Testar:
+curl http://localhost/
+
+Se retornar conteúdo, Apache funcional.
+
+CHECKLIST FINAL
+
+Usuário criado
+Permissões corretas
+LVM funcional
+fstab validado
+Rede configurada
+Firewall aplicado
+SELinux correto
+Apache funcionando
